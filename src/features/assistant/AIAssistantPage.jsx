@@ -1,15 +1,17 @@
 import {
   Check,
   Copy,
+  FileText,
   Mail,
   Send,
   Sparkles,
   Target,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAppContext } from "../../shared/context/AppContext.jsx";
 import {
   analyzeResumeJDMatch,
+  extractSkillsFromText,
   generateOutreachDraft,
 } from "./services/aiAssistantService.js";
 
@@ -29,6 +31,8 @@ export function AIAssistantPage() {
   );
   const [customJD, setCustomJD] = useState("");
   const [useCustomJD, setUseCustomJD] = useState(false);
+  const [resumeMode, setResumeMode] = useState("profile"); // "profile" | "paste"
+  const [resumeText, setResumeText] = useState("");
 
   // Cold Email Drafter State
   const [recipientType, setRecipientType] = useState("Recruiter");
@@ -44,18 +48,42 @@ export function AIAssistantPage() {
   const [draftResult, setDraftResult] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  // Compute Current Opportunity & Local Match Fallback
+  // Compute Current Opportunity & Skills
   const currentOpp = opportunities.find((o) => o.id === selectedOppId);
-  const targetSkills = useCustomJD
-    ? customJD
-        .split(/[,;\n]+/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : currentOpp?.skills || [];
+
+  // Target Skills (from catalog or extracted from custom JD)
+  const targetSkills = useMemo(() => {
+    if (!useCustomJD) return currentOpp?.skills || [];
+    if (!customJD.trim()) return [];
+    // If user provided a comma/newline separated list or paragraph text, extract matching skills
+    const extracted = extractSkillsFromText(customJD);
+    if (extracted.length > 0) return extracted;
+    return customJD
+      .split(/[,;\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, [useCustomJD, customJD, currentOpp]);
+
+  // Candidate Skills (from profile or extracted from pasted resume)
+  const candidateSkills = useMemo(() => {
+    if (resumeMode === "paste" && resumeText.trim()) {
+      const extracted = extractSkillsFromText(resumeText);
+      return extracted.length > 0
+        ? extracted
+        : resumeText
+            .split(/[,;\n]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+    }
+    return profile.skills || [];
+  }, [resumeMode, resumeText, profile.skills]);
 
   const roleTitle = useCustomJD ? "Custom Role" : currentOpp?.title || "Role";
 
-  const localMatchAnalysis = analyzeResumeJDMatch(profile.skills, targetSkills, roleTitle);
+  const localMatchAnalysis = useMemo(
+    () => analyzeResumeJDMatch(candidateSkills, targetSkills, roleTitle),
+    [candidateSkills, targetSkills, roleTitle],
+  );
   const displayMatchAnalysis = localMatchAnalysis;
 
   // Live or Local Outreach Generation Trigger
@@ -187,18 +215,57 @@ export function AIAssistantPage() {
             )}
 
 
-            {/* Profile Skills Preview */}
+            {/* Resume / Candidate Skills Section */}
             <div style={{ borderTop: "1px solid var(--color-border-subtle)", paddingTop: 16 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-primary)", display: "block", marginBottom: 8 }}>
-                Your Declared Profile Skills ({profile.skills.length})
-              </span>
-              <div className="skills-chips">
-                {profile.skills.map((skill) => (
-                  <span key={skill} className="skill-chip">
-                    {skill}
-                  </span>
-                ))}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-primary)" }}>
+                  Candidate Skills Source
+                </span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    className={`button button-xs ${resumeMode === "profile" ? "button-primary" : "button-secondary"}`}
+                    onClick={() => setResumeMode("profile")}
+                    type="button"
+                    style={{ fontSize: 11, padding: "2px 8px" }}
+                  >
+                    Saved Profile ({profile.skills.length})
+                  </button>
+                  <button
+                    className={`button button-xs ${resumeMode === "paste" ? "button-primary" : "button-secondary"}`}
+                    onClick={() => setResumeMode("paste")}
+                    type="button"
+                    style={{ fontSize: 11, padding: "2px 8px" }}
+                  >
+                    <FileText size={12} style={{ marginRight: 4, display: "inline" }} />
+                    Paste Resume Text
+                  </button>
+                </div>
               </div>
+
+              {resumeMode === "paste" ? (
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label htmlFor="resumeTextInput">Paste Resume or Projects Text</label>
+                  <textarea
+                    id="resumeTextInput"
+                    className="form-textarea"
+                    placeholder="Paste resume paragraphs, project descriptions, or skills section here..."
+                    rows={4}
+                    value={resumeText}
+                    onChange={(e) => setResumeText(e.target.value)}
+                  />
+                  <span className="muted" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                    Skills detected: {candidateSkills.length > 0 ? candidateSkills.join(", ") : "None detected yet"}
+                  </span>
+                </div>
+              ) : (
+                <div className="skills-chips">
+                  {profile.skills.map((skill) => (
+                    <span key={skill} className="skill-chip">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

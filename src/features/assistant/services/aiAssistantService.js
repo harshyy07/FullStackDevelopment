@@ -1,4 +1,42 @@
 /**
+ * Common technical skills catalog used for lightweight, deterministic skill extraction
+ * from raw resume or job description text without bloated ML models.
+ */
+export const COMMON_SKILLS = [
+  "React", "JavaScript", "TypeScript", "Node.js", "Express", "Python", "Java", "C++", "C#", "Go",
+  "Rust", "SQL", "PostgreSQL", "MySQL", "MongoDB", "Redis", "GraphQL", "REST", "APIs", "HTML",
+  "CSS", "Tailwind CSS", "Next.js", "Docker", "Kubernetes", "AWS", "Azure", "GCP", "Git", "GitHub",
+  "CI/CD", "Linux", "Data Structures", "Algorithms", "System Design", "Microservices", "Machine Learning",
+  "Deep Learning", "PyTorch", "TensorFlow", "Transformers", "NLP", "Pandas", "NumPy", "Scikit-Learn",
+  "Vitest", "Jest", "Unit Testing", "Problem Solving", "Object-Oriented Programming"
+];
+
+/**
+ * Extracts recognized technical skills from free-form text (resume or job description).
+ * Simple, humane, and case-insensitive keyword-boundary matching.
+ *
+ * @param {string} text - Raw text from a resume or job description
+ * @param {string[]} [customSkillList] - Optional custom list of skills to match against
+ * @returns {string[]} Unique list of detected skills
+ */
+export function extractSkillsFromText(text, customSkillList = COMMON_SKILLS) {
+  if (!text || typeof text !== "string") return [];
+
+  const normalizedText = text.toLowerCase();
+  const detected = new Set();
+
+  customSkillList.forEach((skill) => {
+    const escaped = skill.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    const regex = new RegExp(`(^|[^a-zA-Z0-9_#+])${escaped}([^a-zA-Z0-9_#+]|$)`, "i");
+    if (regex.test(normalizedText)) {
+      detected.add(skill);
+    }
+  });
+
+  return Array.from(detected);
+}
+
+/**
  * Pure client-side explainable algorithm for matching student profile with job skills.
  * Guarantees no hallucination: strictly uses known student skills and JD requirements.
  */

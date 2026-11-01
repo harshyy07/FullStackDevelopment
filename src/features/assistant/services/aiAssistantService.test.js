@@ -1,11 +1,35 @@
 import { describe, expect, it } from "vitest";
 import {
   analyzeResumeJDMatch,
+  extractSkillsFromText,
   generateOutreachDraft,
   parseNaturalLanguageQuery,
 } from "./aiAssistantService.js";
 
 describe("aiAssistantService", () => {
+  describe("extractSkillsFromText", () => {
+    it("extracts known technical skills from raw resume or description text", () => {
+      const sampleText = `
+        Experienced frontend developer with strong knowledge of React, TypeScript, and Git.
+        Built REST APIs with Node.js and Express. Hands-on exposure to Docker and PostgreSQL.
+      `;
+      const skills = extractSkillsFromText(sampleText);
+      expect(skills).toContain("React");
+      expect(skills).toContain("TypeScript");
+      expect(skills).toContain("Git");
+      expect(skills).toContain("APIs");
+      expect(skills).toContain("Node.js");
+      expect(skills).toContain("Express");
+      expect(skills).toContain("Docker");
+      expect(skills).toContain("PostgreSQL");
+    });
+
+    it("handles empty or invalid inputs gracefully", () => {
+      expect(extractSkillsFromText("")).toEqual([]);
+      expect(extractSkillsFromText(null)).toEqual([]);
+    });
+  });
+
   describe("analyzeResumeJDMatch", () => {
     it("accurately calculates matched skills and missing skill gaps", () => {
       const studentSkills = ["React", "TypeScript", "HTML", "CSS", "Git"];
